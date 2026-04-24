@@ -325,7 +325,28 @@ void setup() {
   });
 }
 
+void ensureWiFi() {
+  if (WiFi.status() == WL_CONNECTED) return;
+
+  Serial.println("[WiFi]: Reconnecting...");
+  WiFi.disconnect();
+  WiFi.begin(ssid, password);
+
+  unsigned long start = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - start < 10000) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\n[WiFi]: Reconnected!");
+  } else {
+    Serial.println("\n[WiFi]: Failed");
+  }
+}
+
 void loop() {
+  ensureWiFi();
   curtainA.run();
   curtainB.run();
 
