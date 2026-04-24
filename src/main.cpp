@@ -34,6 +34,24 @@ bool automatic = true;
 unsigned long lastCommandMs = 0;
 uint32_t checkInterval = 1 * 60 * 60 * 1000UL;
 
+void publishConfig(const char *ns, const String &topicBase) {
+  prefs.begin(ns, true);
+
+  int timeToClose = prefs.getInt("time", 5000);
+  float current = prefs.getFloat("current", 1.0f);
+
+  prefs.end();
+
+  JsonDocument doc;
+  doc["timeToCloseMs"] = timeToClose;
+  doc["currentThreshold"] = current;
+
+  String out;
+  serializeJson(doc, out);
+
+  mqtt.publish(topicBase.c_str(), 0, 1, out.c_str());
+}
+
 void applyConfig(Door &curtain, JsonDocument &doc) {
   if (doc["timeToCloseMs"].is<int>()) {
     curtain.setTimeToClose(doc["timeToCloseMs"].as<int>());
@@ -178,7 +196,7 @@ void onMqttMessage(char *topic_, char *payload, int retain, int qos, bool dup) {
     }
   }
 
-  if (strcasecmp((topic + "/curtainA/set/config").c_str(), topic_) == 0) {
+  if (strcasecmp((topic + "/curtainA/config").c_str(), topic_) == 0) {
     JsonDocument doc;
     if (deserializeJson(doc, payload)) {
       mqtt.publish((topic + "/curtainA/config/status").c_str(), 0, 0, "INVALID_JSON");
@@ -186,11 +204,12 @@ void onMqttMessage(char *topic_, char *payload, int retain, int qos, bool dup) {
     }
     applyConfig(curtainA, doc);
     saveConfig("curtainA", doc);
+    publishConfig("curtainA", topic + "/curtainA/config");
     mqtt.publish((topic + "/curtainA/config/status").c_str(), 0, 0, "OK");
     return;
   }
 
-  if (strcasecmp((topic + "/curtainB/set/config").c_str(), topic_) == 0) {
+  if (strcasecmp((topic + "/curtainB/config").c_str(), topic_) == 0) {
     JsonDocument doc;
     if (deserializeJson(doc, payload)) {
       mqtt.publish((topic + "/curtainB/config/status").c_str(), 0, 0, "INVALID_JSON");
@@ -199,6 +218,7 @@ void onMqttMessage(char *topic_, char *payload, int retain, int qos, bool dup) {
 
     applyConfig(curtainB, doc);
     saveConfig("curtainB", doc);
+    publishConfig("curtainB", topic + "/curtainB/config");
     mqtt.publish((topic + "/curtainB/config/status").c_str(), 0, 0, "OK");
     return;
   }
@@ -217,8 +237,8 @@ void taskMqtt() {
     mqtt.subscribe((topic + "/door/cmd").c_str(), 0);
     mqtt.subscribe((topic + "/lamp/set").c_str(), 0);
     mqtt.subscribe((topic + "/mode/set").c_str(), 0);
-    mqtt.subscribe((topic + "/curtainA/set/config").c_str(), 0);
-    mqtt.subscribe((topic + "/curtainB/set/config").c_str(), 0);
+    mqtt.subscribe((topic + "/curtainA/config").c_str(), 0);
+    mqtt.subscribe((topic + "/curtainB/config").c_str(), 0);
 
     mqtt.publish((topic + "/cmd/state").c_str(), 0, 0, "AUTO");
     mqtt.publish((topic + "/curtainA/state").c_str(), 0, 1, "UNKNOW");
@@ -226,6 +246,9 @@ void taskMqtt() {
     mqtt.publish((topic + "/door/state").c_str(), 0, 1, "UNKNOW");
 
     mqtt.publish((topic + "/mode/state").c_str(), 0, 1, automatic ? "AUTO" : "MANUAL");
+
+    publishConfig("curtainA", topic + "/curtainA/config");
+    publishConfig("curtainB", topic + "/curtainB/config");
 
     mqtt.publish((topic + "/status").c_str(), 0, 0, "ONLINE");
   });
