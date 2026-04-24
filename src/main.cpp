@@ -196,7 +196,7 @@ void onMqttMessage(char *topic_, char *payload, int retain, int qos, bool dup) {
     }
   }
 
-  if (strcasecmp((topic + "/curtainA/config").c_str(), topic_) == 0) {
+  if (strcasecmp((topic + "/curtainA/set/config").c_str(), topic_) == 0) {
     JsonDocument doc;
     if (deserializeJson(doc, payload)) {
       mqtt.publish((topic + "/curtainA/config/status").c_str(), 0, 0, "INVALID_JSON");
@@ -209,7 +209,7 @@ void onMqttMessage(char *topic_, char *payload, int retain, int qos, bool dup) {
     return;
   }
 
-  if (strcasecmp((topic + "/curtainB/config").c_str(), topic_) == 0) {
+  if (strcasecmp((topic + "/curtainB/set/config").c_str(), topic_) == 0) {
     JsonDocument doc;
     if (deserializeJson(doc, payload)) {
       mqtt.publish((topic + "/curtainB/config/status").c_str(), 0, 0, "INVALID_JSON");
@@ -237,8 +237,8 @@ void taskMqtt() {
     mqtt.subscribe((topic + "/door/cmd").c_str(), 0);
     mqtt.subscribe((topic + "/lamp/set").c_str(), 0);
     mqtt.subscribe((topic + "/mode/set").c_str(), 0);
-    mqtt.subscribe((topic + "/curtainA/config").c_str(), 0);
-    mqtt.subscribe((topic + "/curtainB/config").c_str(), 0);
+    mqtt.subscribe((topic + "/curtainA/set/config").c_str(), 0);
+    mqtt.subscribe((topic + "/curtainB/set/config").c_str(), 0);
 
     mqtt.publish((topic + "/cmd/state").c_str(), 0, 0, "AUTO");
     mqtt.publish((topic + "/curtainA/state").c_str(), 0, 1, "UNKNOW");
