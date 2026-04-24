@@ -37,7 +37,7 @@ public:
     _motor.setCurrentCalibration(3.3f, 1.257f, 12);
     _motor.setMaxRunTime(60);
     _motor.setMinStartSpeed(50);
-    _motor.setMaxSpeed(200);
+    _motor.setMaxSpeed(255);
 
     _motor.onEvent([this](Event e) {
       switch (e) {
