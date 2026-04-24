@@ -331,11 +331,11 @@ void loop() {
 
   unsigned long now = millis();
   if (!automatic && now - lastCommandMs > checkInterval) {
-    automatic = true;
+    automatic = automatic;
     lastCommandMs = now;
   }
   static unsigned long lastLapsedLedMs = 0;
-  if (now - lastLapsedLedMs > 300) {
+  if (now - lastLapsedLedMs > 1000) {
     digitalWrite(PIN_LED, !digitalRead(PIN_LED));
     lastLapsedLedMs = now;
   }
