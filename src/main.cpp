@@ -3,6 +3,7 @@
 #include <Door.h>
 #include <Motor.h>
 #include <OTA.h>
+#include <Preferences.h>
 #include <PsychicMqttClient.h>
 #include <Sensors.h>
 #include <WiFi.h>
@@ -12,6 +13,8 @@
 
 const char *ssid = WIFI_SSID;
 const char *password = WIFI_PASS;
+
+Preferences prefs;
 
 OTA ota;
 
@@ -30,6 +33,43 @@ PsychicMqttClient mqtt;
 bool automatic = true;
 unsigned long lastCommandMs = 0;
 uint32_t checkInterval = 1 * 60 * 60 * 1000UL;
+
+void applyConfig(Door &curtain, JsonDocument &doc) {
+  if (doc["timeToCloseMs"].is<int>()) {
+    curtain.setTimeToClose(doc["timeToCloseMs"].as<int>());
+  }
+
+  if (doc["currentThreshold"].is<float>() || doc["currentThreshold"].is<int>()) {
+    curtain.setCurrentThreshold(doc["currentThreshold"].as<float>());
+  }
+}
+
+void saveConfig(const char *ns, JsonDocument &doc) {
+  prefs.begin(ns, false);
+
+  if (doc["timeToCloseMs"].is<int>()) {
+    prefs.putInt("time", doc["timeToCloseMs"].as<int>());
+  }
+
+  if (doc["currentThreshold"].is<float>() || doc["currentThreshold"].is<int>()) {
+    prefs.putFloat("current", doc["currentThreshold"].as<float>());
+  }
+
+  prefs.end();
+}
+
+void loadConfig(const char *ns, Door &curtain) {
+  prefs.begin(ns, true);
+
+  JsonDocument doc;
+
+  doc["timeToCloseMs"] = prefs.getInt("time", 5000);
+  doc["currentThreshold"] = prefs.getFloat("current", 1.0f);
+
+  prefs.end();
+
+  applyConfig(curtain, doc);
+}
 
 void onMqttMessage(char *topic_, char *payload, int retain, int qos, bool dup) {
   Serial.printf("[MQTT]: topic: %s | payload: %s | qos: %d | dup: %d | retain: %d \n", topic_, payload, qos, dup, retain);
@@ -137,6 +177,31 @@ void onMqttMessage(char *topic_, char *payload, int retain, int qos, bool dup) {
       curtainB.move(Move::STOP);
     }
   }
+
+  if (strcasecmp((topic + "/curtainA/set/config").c_str(), topic_) == 0) {
+    JsonDocument doc;
+    if (deserializeJson(doc, payload)) {
+      mqtt.publish((topic + "/curtainA/config/status").c_str(), 0, 0, "INVALID_JSON");
+      return;
+    }
+    applyConfig(curtainA, doc);
+    saveConfig("curtainA", doc);
+    mqtt.publish((topic + "/curtainA/config/status").c_str(), 0, 0, "OK");
+    return;
+  }
+
+  if (strcasecmp((topic + "/curtainB/set/config").c_str(), topic_) == 0) {
+    JsonDocument doc;
+    if (deserializeJson(doc, payload)) {
+      mqtt.publish((topic + "/curtainB/config/status").c_str(), 0, 0, "INVALID_JSON");
+      return;
+    }
+
+    applyConfig(curtainB, doc);
+    saveConfig("curtainB", doc);
+    mqtt.publish((topic + "/curtainB/config/status").c_str(), 0, 0, "OK");
+    return;
+  }
 }
 
 void taskMqtt() {
@@ -152,6 +217,8 @@ void taskMqtt() {
     mqtt.subscribe((topic + "/door/cmd").c_str(), 0);
     mqtt.subscribe((topic + "/lamp/set").c_str(), 0);
     mqtt.subscribe((topic + "/mode/set").c_str(), 0);
+    mqtt.subscribe((topic + "/curtainA/set/config").c_str(), 0);
+    mqtt.subscribe((topic + "/curtainB/set/config").c_str(), 0);
 
     mqtt.publish((topic + "/cmd/state").c_str(), 0, 0, "AUTO");
     mqtt.publish((topic + "/curtainA/state").c_str(), 0, 1, "UNKNOW");
@@ -196,12 +263,14 @@ void setup() {
   taskMqtt();
 
   curtainA.begin();
-  curtainA.setCurrentThreshold(1.0f);
-  curtainA.setTimeToClose(10000);
+  loadConfig("curtainA", curtainA);
+  // curtainA.setCurrentThreshold(1.0f);
+  // curtainA.setTimeToClose(5000);
 
   curtainB.begin();
-  curtainB.setCurrentThreshold(0.6f);
-  curtainB.setTimeToClose(4000);
+  loadConfig("curtainB", curtainB);
+  // curtainB.setCurrentThreshold(1.0f);
+  // curtainB.setTimeToClose(5000);
 
   sensors.begin();
 
@@ -243,7 +312,7 @@ void loop() {
     lastCommandMs = now;
   }
   static unsigned long lastLapsedLedMs = 0;
-  if (now - lastLapsedLedMs > 500) {
+  if (now - lastLapsedLedMs > 300) {
     digitalWrite(PIN_LED, !digitalRead(PIN_LED));
     lastLapsedLedMs = now;
   }
