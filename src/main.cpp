@@ -1,3 +1,4 @@
+#include "net.h"
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <Door.h>
@@ -224,7 +225,7 @@ void onMqttMessage(char *topic_, char *payload, int retain, int qos, bool dup) {
   }
 }
 
-void taskMqtt() {
+void setupMqtt() {
 
   mqtt.setServer(mqttUrl);
   mqtt.setCredentials(mqttUser, mqttPasswd);
@@ -251,10 +252,12 @@ void taskMqtt() {
     publishConfig("curtainB", topic + "/curtainB/config");
 
     mqtt.publish((topic + "/status").c_str(), 0, 0, "ONLINE");
+    netState = MQTT_OK;
   });
 
   mqtt.onDisconnect([](int reason) {
     Serial.printf("[MQTT]: Disconnected (%d)\n", reason);
+    netState = WIFI_OK;
   });
 
   mqtt.onMessage(onMqttMessage);
@@ -274,6 +277,12 @@ void setup() {
 
   delay(500);
   Serial.printf("[APP]: Connecting in %s ", ssid);
+
+  WiFi.onEvent(wiFiStationConnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_CONNECTED);
+  WiFi.onEvent(wiFiGotIP, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_GOT_IP);
+  WiFi.onEvent(wiFiStationDisconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+
+  WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     Serial.print(".");
@@ -283,7 +292,7 @@ void setup() {
 
   ota.begin();
 
-  taskMqtt();
+  setupMqtt();
 
   curtainA.begin();
   loadConfig("curtainA", curtainA);
@@ -325,39 +334,17 @@ void setup() {
   });
 }
 
-void ensureWiFi() {
-  if (WiFi.status() == WL_CONNECTED) return;
-
-  Serial.println("[WiFi]: Reconnecting...");
-  WiFi.disconnect();
-  WiFi.begin(ssid, password);
-
-  unsigned long start = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - start < 10000) {
-    delay(500);
-    Serial.print(".");
-  }
-
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\n[WiFi]: Reconnected!");
-  } else {
-    Serial.println("\n[WiFi]: Failed");
-  }
-}
-
 void loop() {
-  ensureWiFi();
+
+  updateLed();
+
   curtainA.run();
   curtainB.run();
 
-  unsigned long now = millis();
-  if (!automatic && now - lastCommandMs > checkInterval) {
-    automatic = automatic;
-    lastCommandMs = now;
-  }
-  static unsigned long lastLapsedLedMs = 0;
-  if (now - lastLapsedLedMs > 1000) {
-    digitalWrite(PIN_LED, !digitalRead(PIN_LED));
-    lastLapsedLedMs = now;
-  }
+  // unsigned long now = millis();
+  // static unsigned long lastLapsedLedMs = 0;
+  // if (now - lastLapsedLedMs > 1000) {
+  //   digitalWrite(PIN_LED, !digitalRead(PIN_LED));
+  //   lastLapsedLedMs = now;
+  // }
 }

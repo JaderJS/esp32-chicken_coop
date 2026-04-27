@@ -29,11 +29,11 @@ def get_env(name):
 
 env.Append(
     BUILD_FLAGS=[
-        f'-D WIFI_SSID="{get_env("WIFI_SSID")}"',
-        f'-D WIFI_PASS="{get_env("WIFI_PASS")}"',
-        f'-D API_KEY_WEATHER="{get_env("API_KEY_WEATHER")}"',
-        f'-D MQTT_URL="{get_env("MQTT_URL")}"',
-        f'-D MQTT_USER="{get_env("MQTT_USER")}"',
-        f'-D MQTT_PASS="{get_env("MQTT_PASS")}"',
+        f'-D WIFI_SSID=\\"{get_env("WIFI_SSID")}\\"',
+        f'-D WIFI_PASS=\\"{get_env("WIFI_PASS")}\\"',
+        f'-D API_KEY_WEATHER=\\"{get_env("API_KEY_WEATHER")}\\"',
+        f'-D MQTT_URL=\\"{get_env("MQTT_URL")}\\"',
+        f'-D MQTT_USER=\\"{get_env("MQTT_USER")}\\"',
+        f'-D MQTT_PASS=\\"{get_env("MQTT_PASS")}\\"',
     ]
 )
